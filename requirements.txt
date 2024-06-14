@@ -7,3 +7,4 @@ pyttsx3
 requests
 setuptools
 SpeechRecognition
+soundfile
