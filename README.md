@@ -4,7 +4,7 @@ TalkPI is a Python project designed to enable a large language model to interact
 
 ## Installation
 Ensure [Ollama](https://ollama.com/) is installed on your Raspberry Pi.
-### Raspberry pi
+### Raspberry Pi
 ```bash
 git clone https://github.com/Talltiger50/TalkPI.git
 cd TalkPI
