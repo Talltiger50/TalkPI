@@ -1,0 +1,9 @@
+# requirements.txt
+
+numpy
+openai-whisper
+PyAudio
+pyttsx3
+requests
+setuptools
+SpeechRecognition
