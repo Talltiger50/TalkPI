@@ -82,7 +82,7 @@ async def main():
             tts_engine.runAndWait()
             
             messages.append({"role": "assistant","content": output})
-        elif user_prompt and not "Thank you.":
+        elif user_prompt:
             tts_engine.say("Please try again.")
             tts_engine.runAndWait()
         
