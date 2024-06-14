@@ -61,7 +61,7 @@ async def main():
         
         user_prompt = get_voice_input()
         lastword=""
-        if user_prompt and "Phil" in user_prompt:
+        if user_prompt and name in user_prompt:
             
             messages.append({"role": "user", "content": user_prompt})
             # Step 2: Get chat response and read out loud
