@@ -16,7 +16,7 @@ voices = tts_engine.getProperty('voices')
 
 # Initialize speech recognizer
 recognizer = sr.Recognizer()
-messages=[{"role": "system","content": "you are a voice assistant called Phil shorten and simplfiy what you say"}]
+messages=[{"role": "system","content": f"you are a voice assistant called {name} shorten and simplfiy what you say"}]
 def get_voice_input():
     with sr.Microphone() as source:
         print("Listening for your input...")
