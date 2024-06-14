@@ -16,7 +16,7 @@ Simply run with a connected microphone and speaker:
 ```bash
 ./venv/bin/python main.py
 ```
-To change the model, modify the `model` parameter in the Python file to your Ollama model of choice:
+To change the model, modify the `model` parameter in the Python file to your Ollama model of choice make sure it's downloaded with ollama:
 ```python
 # this example with phi3
 model="phi3:mini"
