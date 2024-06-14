@@ -3,6 +3,10 @@ import pyttsx3
 import speech_recognition as sr
 import asyncio
 import requests as re
+#ollama model
+model="phi3:mini"
+#wake word 
+name="Phi"
 
 # Initialize TTS engine
 tts_engine = pyttsx3.init()
@@ -31,7 +35,7 @@ def get_voice_input():
 # Function to stream chat response from custom API
 def chat(messages: list[dict]):
     data = {
-        "model": "phi3:mini",
+        "model": model,
         "messages": messages,
         "stream": True
     }
