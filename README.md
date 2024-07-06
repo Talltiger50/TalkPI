@@ -11,6 +11,8 @@ cd TalkPI
 python -m venv venv
 ./venv/bin/pip install -r requirements.txt
 ```
+## Current change being worked on
+.memory
 ## Usage
 Simply run with a connected microphone and speaker:
 ```bash
