@@ -8,3 +8,4 @@ requests
 setuptools
 SpeechRecognition
 soundfile
+ollama
