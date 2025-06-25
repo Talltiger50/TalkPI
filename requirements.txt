@@ -9,3 +9,4 @@ setuptools
 SpeechRecognition
 soundfile
 ollama
+piper-tts
