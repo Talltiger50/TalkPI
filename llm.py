@@ -127,7 +127,7 @@ def stream_chat_response(messages):
 # ---------------------------------------------------------------------
 def start():
     # user_prompt = get_voice_input() # Or use get_text_input()
-    user_prompt = input("You: ")
+    user_prompt = get_voice_input()
     if not user_prompt or name.lower() not in user_prompt.lower():
         return
 
