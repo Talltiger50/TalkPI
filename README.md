@@ -1,4 +1,4 @@
-# TalkPI
+# TalkPI (Work In Process)
 
 TalkPI is a Python project designed to enable a large language model to interact using voice commands on a Raspberry Pi, utilizing [Ollama](https://ollama.com/) locally.
 
