@@ -1,5 +1,4 @@
 import json
-import speech_recognition as sr
 import re
 import threading
 import queue
@@ -8,41 +7,58 @@ import numpy as np
 import sounddevice as sd
 from ollama import chat
 from piper import PiperVoice
+# SpeechRecognition is only needed if you use the voice input function
+# import speech_recognition as sr
 
-# ollama model
-model = "qwen3:1.7b"
-# wake word
-name = "Phil"
-# note this has only been tested on phi3
-memory = False
+# --- Configuration ---
+OLLAMA_MODEL = "qwen3:1.7b"
+WAKE_WORD = "Phil"
+VOICE_MODEL_PATH = "en_us.onnx" # Path to your .onnx voice file
 
-memoryPath = "memory.json"
-
-# Load Piper voice (high quality)
-print("Loading voice model...")
-voice = PiperVoice.load("en_us.onnx")  # or path to model file
-sample_rate = voice.config.sample_rate
-print("Voice model loaded.")
-
-# Initialize speech recognizer
-recognizer = sr.Recognizer()
-
-# TTS queue for main thread processing
+# --- Globals ---
+messages = [{"role": "system", "content": f"You are a helpful AI assistant called {WAKE_WORD}."}]
 tts_queue = queue.Queue()
 speaking_in_progress = False
 
-if memory:
-    with open("MemoryPrompt.txt") as p:
-        messages = [{"role": "system", "content": p.read()}]
-        p.close()
-else:
-    messages = [{"role": "system", "content": "you are a helpful a ai called phil"}]
+# --- Load Piper Voice Model ---
+print("Loading voice model...")
+try:
+    voice = PiperVoice.load(VOICE_MODEL_PATH)
+    sample_rate = voice.config.sample_rate
+    print("Voice model loaded successfully.")
+except Exception as e:
+    print(f"Error loading voice model: {e}")
+    print("Please ensure the model files are downloaded and in the correct path.")
+    exit()
 
+# ---------------------------------------------------------------------
+# -- NEW FUNCTION TO REMOVE EMOJIS AND UNWANTED SYMBOLS --
+# ---------------------------------------------------------------------
+def sanitize_text_for_tts(text):
+    """
+    Removes emojis and other non-speech characters from text before TTS.
+    """
+    # Comprehensive regex to remove most emojis and symbols
+    emoji_pattern = re.compile(
+        "["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+        "]+",
+        flags=re.UNICODE,
+    )
+    # Remove all emojis
+    text = emoji_pattern.sub(r'', text)
+    # Optional: remove other characters you don't want spoken, like markdown
+    text = text.replace('*', '').replace('#', '').replace('_', '')
+    return text.strip()
 
 def process_tts_queue():
-    """Process TTS queue in main thread - call this periodically in the main loop"""
+    """Processes the TTS queue in the main thread."""
     global speaking_in_progress
-
     if not speaking_in_progress and not tts_queue.empty():
         try:
             text = tts_queue.get_nowait()
@@ -51,158 +67,98 @@ def process_tts_queue():
             def speak_async(text_to_speak):
                 global speaking_in_progress
                 try:
-                    # Use a stream for real-time playback
                     with sd.OutputStream(samplerate=sample_rate, channels=1, dtype='int16') as stream:
                         for chunk in voice.synthesize_stream_raw(text_to_speak):
-                            data = np.frombuffer(chunk, dtype=np.int16)
-                            stream.write(data)
+                            stream.write(np.frombuffer(chunk, dtype=np.int16))
                 finally:
-                    speaking_in_progress = False # Signal that speaking is done
+                    speaking_in_progress = False
 
-            # Run the speaking part in a separate thread to not block the main loop
             thread = threading.Thread(target=speak_async, args=(text,), daemon=True)
             thread.start()
-
         except queue.Empty:
             pass
 
-
+# ---------------------------------------------------------------------
+# -- MODIFIED FUNCTION TO USE THE SANITIZER --
+# ---------------------------------------------------------------------
 def queue_tts(text):
-    """Queue text for TTS playback"""
-    if text.strip():
-        tts_queue.put(text)
+    """Sanitizes text and queues it for TTS playback."""
+    clean_text = sanitize_text_for_tts(text)
+    if clean_text:
+        tts_queue.put(clean_text)
 
+def stream_chat_response(messages_history):
+    """Streams the chat response from Ollama."""
+    for chunk in chat(model=OLLAMA_MODEL, messages=messages_history, stream=True):
+        content = chunk['message']['content']
+        if content:
+            yield content
 
-def memoryF(message: str):
-    # This function remains unchanged
-    if "!save" in message and "!load" in message:
-        matches = re.findall(r'!(save|load)\s*({.*?})?', message)
-        for match in matches:
-            command = match[0]
-            json_data = match[1] if len(match) > 1 else None
-            if command == 'save' and json_data:
-                try:
-                    data_dict = json.loads(json_data)
-                    for key, value in data_dict.items():
-                        name = key
-                        val = value
-                        with open(memoryPath, 'r') as file:
-                            data = json.load(file)
-                        data.append({name: val})
-                        with open(memoryPath, 'w') as file:
-                            json.dump(data, file, indent=4)
-                except json.JSONDecodeError as e:
-                    print(f"Error decoding JSON: {e}")
-            elif command == 'load':
-                print("Executing !load command")
-            else:
-                print(f"Ignoring unknown command: !{command}")
-
-
-def get_voice_input():
-    # This function remains unchanged
-    with sr.Microphone() as source:
-        print("Listening for your input...")
-        audio = recognizer.listen(source)
-        try:
-            text = recognizer.recognize_whisper(audio)
-            print(f"You said: {text}")
-            return text
-        except sr.UnknownValueError:
-            print("Sorry, I could not understand the audio.")
-            return None
-        except sr.RequestError as e:
-            print(f"Could not request results; {e}")
-            return None
-
-# Asynchronous function to stream chat response
-def stream_chat_response(messages):
-    # This function remains unchanged
-    for chunk in chat(model=model, messages=messages, stream=True):
-        yield chunk['message']['content']
-
-
-# ---------------------------------------------------------------------
-# -- THIS IS THE UPGRADED FUNCTION --
-# ---------------------------------------------------------------------
 def start():
-    # user_prompt = get_voice_input() # Or use get_text_input()
-    user_prompt = get_voice_input()
-    if not user_prompt or name.lower() not in user_prompt.lower():
+    """Main logic for a single turn of conversation."""
+    user_prompt = input("You: ")
+    if not user_prompt or WAKE_WORD.lower() not in user_prompt.lower():
         return
 
     messages.append({"role": "user", "content": user_prompt})
-
-    print("Phil: ", end='', flush=True)
+    print(f"{WAKE_WORD}: ", end='', flush=True)
 
     full_response = ""
     speakable_text_buffer = ""
     has_started_speaking = False
     think_end_token = "</think>"
+    
+    # --- MODIFIED: Only look for major sentence breaks for smoother speech ---
+    sentence_delimiters = ['.', '!', '?']
 
     for text_chunk in stream_chat_response(messages):
         full_response += text_chunk
 
-        # If we haven't started speaking yet, wait for the </think> token
         if not has_started_speaking:
             think_end_pos = full_response.find(think_end_token)
             if think_end_pos != -1:
-                # We found the end of the thought block.
                 has_started_speaking = True
-                # The text we can potentially speak starts right after the token
                 speakable_text_buffer = full_response[think_end_pos + len(think_end_token):]
-                # Print the speakable part to the screen
                 print(speakable_text_buffer, end='', flush=True)
             else:
-                # Still waiting for </think>, so do nothing else
                 continue
         else:
-            # We are already past the thought block, so just append the new chunk
             speakable_text_buffer += text_chunk
             print(text_chunk, end='', flush=True)
-
-        # Process the accumulated speakable text for natural sentence breaks
-        # Find the last natural break in the buffer
+        
         last_break = -1
-        for delim in ['.', '!', '?', ',', ';', ':']:
+        for delim in sentence_delimiters:
             pos = speakable_text_buffer.rfind(delim)
             if pos > last_break:
                 last_break = pos
 
         if last_break != -1:
-            # We found a sentence break. Queue up the sentence for TTS.
             text_to_speak = speakable_text_buffer[:last_break + 1]
             queue_tts(text_to_speak)
-
-            # Keep the remainder in the buffer for the next iteration
             speakable_text_buffer = speakable_text_buffer[last_break + 1:]
-
-        # Call the queue processor in the loop to handle speaking
+        
         process_tts_queue()
 
-    # After the stream is finished, if there's any text left in the buffer, speak it.
     if speakable_text_buffer.strip():
         queue_tts(speakable_text_buffer)
 
-    # Wait for the last sentence to finish speaking
     while not tts_queue.empty() or speaking_in_progress:
         process_tts_queue()
-        time.sleep(0.1)
+        time.sleep(0.05)
 
-    print() # for a new line after the response
+    print()
     messages.append({"role": "assistant", "content": full_response})
 
-
 def main():
+    """Main application loop."""
     try:
         while True:
-            # The main loop now also needs to process the TTS queue for cleanup
-            process_tts_queue()
             start()
+            # Process queue one last time in case of leftover tasks
+            process_tts_queue()
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("\nShutting down...")
-
 
 if __name__ == "__main__":
     main()
