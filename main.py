@@ -71,30 +71,19 @@ def queue_tts(text):
 def get_voice_input():
     # This function remains unchanged
     with sr.Microphone() as source:
-        print("Listening for your input...")
+        #print("Listening for your input...")
         audio = recognizer.listen(source,timeout=2)
         try:
             text = recognizer.recognize_whisper(audio)
-            print(f"You said: {text}")
+            #print(f"You said: {text}")
             return text
         except sr.UnknownValueError:
-            print("Sorry, I could not understand the audio.")
+            #print("Sorry, I could not understand the audio.")
             return None
         except sr.RequestError as e:
             print(f"Could not request results; {e}")
             return None
 
-# Asynchronous function to stream chat response
-if useTools:
-    tools1=tools
-else:
-    tools1=None
-def stream_chat_response(messages):
-    # This function remains unchanged
-    
-    stream=chat(model=model, messages=messages, stream=True,tools=tools1)
-    for chunk in stream:
-        yield chunk,stream
 
 
 def start():
