@@ -32,7 +32,7 @@ tts_queue = queue.Queue()
 speaking_in_progress = False
 
 
-messages = [{f"role": "system", "content": "you are a helpful a ai named {name}"}]
+messages = [{f"role": "system", "content": "you are a helpful a ai named {name} that has tool calls"}]
 
 
 def process_tts_queue():
@@ -98,81 +98,88 @@ def stream_chat_response(messages):
 
 
 def start():
-    # user_prompt = get_voice_input() # Or use get_text_input()
     user_prompt = get_voice_input()
     if not user_prompt or name.lower() not in user_prompt.lower():
         return
 
     messages.append({"role": "user", "content": user_prompt})
-
     print("Phil: ", end='', flush=True)
 
-    full_response = ""
-    speakable_text_buffer = ""
-    has_started_speaking = False
-    think_end_token = "</think>"
-
-    for chunk ,stream in stream_chat_response(messages):
-        full_response += chunk['message']['content']
-
-        # If we haven't started speaking yet, wait for the </think> token
-        if not has_started_speaking:
-            think_end_pos = full_response.find(think_end_token)
-            if think_end_pos != -1:
-                # We found the end of the thought block.
-                has_started_speaking = True
-                # The text we can potentially speak starts right after the token
-                speakable_text_buffer = full_response[think_end_pos + len(think_end_token):]
-                # Print the speakable part to the screen
-                print(speakable_text_buffer, end='', flush=True)
-            else:
-                # Still waiting for </think>, so do nothing else
-                continue
-        else:
-            # We are already past the thought block, so just append the new chunk
-            speakable_text_buffer += chunk['message']['content']
-            print(chunk, end='', flush=True)
-
-        # Process the accumulated speakable text for natural sentence breaks
-        # Find the last natural break in the buffer
-        last_break = -1
-        for delim in ['.', '!', '?', ',', ';', ':']:
-            pos = speakable_text_buffer.rfind(delim)
-            if pos > last_break:
-                last_break = pos
-
-        if last_break != -1:
-            # We found a sentence break. Queue up the sentence for TTS.
-            text_to_speak = speakable_text_buffer[:last_break + 1]
-            queue_tts(text_to_speak)
-
-            # Keep the remainder in the buffer for the next iteration
-            speakable_text_buffer = speakable_text_buffer[last_break + 1:]
-
-        # Call the queue processor in the loop to handle speaking
-        process_tts_queue()
-        if chunk["message"].get("tool_calls") and useTools:
-            call = chunk["message"]["tool_calls"][0]["function"]
-            func_name = call["name"]
-            args = call["arguments"]
-            # run the function
-            result=call_tool(func_name,args)
+    # --- First call to the model to see if it wants to use a tool ---
+    response = chat(model=model, messages=messages, stream=False, tools=tools1 if useTools else None)
+    
+    # Check if the model decided to call a tool
+    if response['message'].get('tool_calls'):
+        print("Tool call detected. Executing...")
+        
+        # It's good practice to append the assistant's intent to call a tool
+        messages.append(response['message'])
+        
+        tool_calls = response['message']['tool_calls']
+        
+        # Execute all tool calls and gather the results
+        for tool_call in tool_calls:
+            function_name = tool_call['function']['name']
+            arguments = tool_call['function']['arguments']
             
-            # respond back with tool output
-            stream.send_tool_response(json.dumps(result))
+            # Your existing function to run the tool
+            tool_output = call_tool(function_name, arguments)
             
-    # After the stream is finished, if there's any text left in the buffer, speak it.
-    if speakable_text_buffer.strip():
-        queue_tts(speakable_text_buffer)
+            # Append the tool's output to the message history
+            messages.append({
+                "role": "tool",
+                "content": json.dumps(tool_output),  # Ensure the output is a JSON string
+            })
 
+        # --- Second call to the model with the tool's output ---
+        # Now the model will respond based on the tool's results
+        final_stream = chat(model=model, messages=messages, stream=True)
+
+        full_response = ""
+        speakable_text_buffer = ""
+        
+        for chunk in final_stream:
+            content = chunk['message']['content']
+            full_response += content
+            speakable_text_buffer += content
+            print(content, end='', flush=True)
+
+            # Your existing logic to queue sentences for TTS
+            last_break = -1
+            for delim in ['.', '!', '?', ',', ';', ':']:
+                pos = speakable_text_buffer.rfind(delim)
+                if pos > last_break:
+                    last_break = pos
+
+            if last_break != -1:
+                text_to_speak = speakable_text_buffer[:last_break + 1]
+                queue_tts(text_to_speak)
+                speakable_text_buffer = speakable_text_buffer[last_break + 1:]
+            
+            process_tts_queue()
+
+        if speakable_text_buffer.strip():
+            queue_tts(speakable_text_buffer)
+
+    else:
+        # --- No tool call, just stream the response directly ---
+        # This part handles regular conversation
+        full_response = response['message']['content']
+        print(full_response)
+        queue_tts(full_response)
+
+
+    # --- Finalize the conversation ---
     # Wait for the last sentence to finish speaking
     while not tts_queue.empty() or speaking_in_progress:
         process_tts_queue()
         time.sleep(0.1)
-    
 
-    print() # for a new line after the response
-    messages.append({"role": "assistant", "content": full_response})
+    print()  # For a new line after the response
+    
+    # Append the final assistant response to the history
+    if 'tool_calls' not in response['message']:
+        messages.append({"role": "assistant", "content": full_response})
 
 
 def main():
