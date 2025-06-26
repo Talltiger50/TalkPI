@@ -2,17 +2,17 @@
 
 TalkPI is a Python project designed to enable a large language model to interact using voice commands on a Raspberry Pi, utilizing [Ollama](https://ollama.com/) locally.
 
+-now with tool support
+-using piper tts
+
 ## Installation
-Ensure [Ollama](https://ollama.com/) is installed on your Raspberry Pi.
+Ensure [Ollama](https://ollama.com/) is installed on your Raspberry Pi. (make sure to pull model file in ollama)
 ### Raspberry Pi
 ```bash
 git clone https://github.com/Talltiger50/TalkPI.git
 cd TalkPI
-python -m venv venv
-./venv/bin/pip install -r requirements.txt
+sudo setup.sh
 ```
-## Current updates being worked on
--memory
 
 ## Usage
 Simply run with a connected microphone and speaker:
