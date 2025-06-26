@@ -72,7 +72,7 @@ def get_voice_input():
     # This function remains unchanged
     with sr.Microphone() as source:
         print("Listening for your input...")
-        audio = recognizer.listen(source)
+        audio = recognizer.listen(source,timeout=2)
         try:
             text = recognizer.recognize_whisper(audio)
             print(f"You said: {text}")
@@ -85,10 +85,10 @@ def get_voice_input():
             return None
 
 # Asynchronous function to stream chat response
-#if useTools:
-    #tools1=tools
-#else:
-    #tools1=None
+if useTools:
+    tools1=tools
+else:
+    tools1=None
 def stream_chat_response(messages):
     # This function remains unchanged
     
@@ -155,7 +155,7 @@ def start():
 
             speakable_text_buffer = ""
             for chunk in final_response_stream:
-                content = chunk['message']['content']
+                content = chunk.message.content
                 full_response += content
                 speakable_text_buffer += content
                 print(content, end='', flush=True)
@@ -183,7 +183,7 @@ def start():
             # This handles regular conversation
             full_response = response['message']['content']
             print(full_response)
-            queue_tts(full_response)
+            
         
         # --- Finalization ---
         # Wait for the TTS queue to finish speaking
