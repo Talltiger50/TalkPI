@@ -8,7 +8,7 @@ import numpy as np
 import sounddevice as sd
 from ollama import chat
 from piper import PiperVoice
-from tools import call_tool,tools
+from tools import available_tools, tools_list
 
 # ollama model make sure to have the model preinstalled to ollama
 model = "qwen3:1.7b" #supports tools
@@ -85,105 +85,121 @@ def get_voice_input():
             return None
 
 # Asynchronous function to stream chat response
-#if useTools:
-    #tools=tools
-#else:
-    #tools=None
+if useTools:
+    tools1=tools
+else:
+    tools1=None
 def stream_chat_response(messages):
     # This function remains unchanged
     
-    stream=chat(model=model, messages=messages, stream=True,tools=tools)
+    stream=chat(model=model, messages=messages, stream=True,tools=tools1)
     for chunk in stream:
         yield chunk,stream
 
 
 def start():
+    """
+    Listens for user input, processes it with the Ollama model,
+    handles tool calls, and speaks the final response.
+    """
     user_prompt = get_voice_input()
     if not user_prompt or name.lower() not in user_prompt.lower():
         return
 
     messages.append({"role": "user", "content": user_prompt})
     print("Phil: ", end='', flush=True)
-
-    # --- First call to the model to see if it wants to use a tool ---
-    response = chat(model=model, messages=messages, stream=False, tools=tools if useTools else None)
     
-    # Check if the model decided to call a tool
-    if response['message'].get('tool_calls'):
-        print("Tool call detected. Executing...")
-        
-        # It's good practice to append the assistant's intent to call a tool
-        messages.append(response['message'])
-        
-        tool_calls = response['message']['tool_calls']
-        
-        # Execute all tool calls and gather the results
-        for tool_call in tool_calls:
-            function_name = tool_call['function']['name']
-            arguments = tool_call['function']['arguments']
+    full_response = ""
+
+    try:
+        # --- STEP 1: Make the first call to see if a tool is needed ---
+        # We use stream=False because we need the full response to check for tool_calls
+        response = chat(
+            model=model,
+            messages=messages,
+            stream=False,
+            tools=tools_list if useTools else None
+        )
+
+        tool_calls = response['message'].get('tool_calls')
+
+        # --- STEP 2: If a tool is called, execute it ---
+        if tool_calls and useTools:
+            print("Tool call detected. Executing...")
             
-            # Your existing function to run the tool
-            tool_output = call_tool(function_name, arguments)
+            # Append the assistant's decision to use a tool to the message history
+            messages.append(response['message'])
             
-            # Append the tool's output to the message history
-            messages.append({
-                "role": "tool",
-                "content": json.dumps(tool_output),  # Ensure the output is a JSON string
-            })
+            # Execute all tool calls and gather the results
+            for tool_call in tool_calls:
+                function_name = tool_call['function']['name']
+                arguments = tool_call['function']['arguments']
+                
+                print(f"  - Calling: {function_name}({arguments})")
 
-        # --- Second call to the model with the tool's output ---
-        # Now the model will respond based on the tool's results
-        final_stream = chat(model=model, messages=messages, stream=True)
+                if function_to_call := available_tools.get(function_name):
+                    # Call the actual function from tools.py
+                    tool_output = function_to_call(**arguments)
+                    
+                    # Append the tool's output to the message history
+                    messages.append({
+                        "role": "tool",
+                        "content": tool_output, # The output is already a JSON string
+                    })
+                else:
+                    print(f"Error: Model tried to call unknown tool '{function_name}'")
+                    messages.append({"role": "tool", "content": f'{{"error": "Tool {function_name} not found."}}'})
 
-        full_response = ""
-        speakable_text_buffer = ""
+            # --- STEP 3: Make the second call to get the final, natural language response ---
+            final_response_stream = chat(model=model, messages=messages, stream=True)
+
+            speakable_text_buffer = ""
+            for chunk in final_response_stream:
+                content = chunk['message']['content']
+                full_response += content
+                speakable_text_buffer += content
+                print(content, end='', flush=True)
+
+                # Use existing logic to find sentence breaks for natural TTS
+                last_break = -1
+                for delim in ['.', '!', '?', ',', ';', ':']:
+                    pos = speakable_text_buffer.rfind(delim)
+                    if pos > last_break:
+                        last_break = pos
+
+                if last_break != -1:
+                    text_to_speak = speakable_text_buffer[:last_break + 1]
+                    queue_tts(text_to_speak)
+                    speakable_text_buffer = speakable_text_buffer[last_break + 1:]
+                
+                process_tts_queue() # Keep the TTS queue running
+
+            # Queue any remaining text in the buffer
+            if speakable_text_buffer.strip():
+                queue_tts(speakable_text_buffer)
+
+        else:
+            # --- NO TOOL CALL: Just stream the direct response ---
+            # This handles regular conversation
+            full_response = response['message']['content']
+            print(full_response)
+            queue_tts(full_response)
         
-        for chunk in final_stream:
-            content = chunk['message']['content']
-            full_response += content
-            speakable_text_buffer += content
-            print(content, end='', flush=True)
-
-            # Your existing logic to queue sentences for TTS
-            last_break = -1
-            for delim in ['.', '!', '?', ',', ';', ':']:
-                pos = speakable_text_buffer.rfind(delim)
-                if pos > last_break:
-                    last_break = pos
-
-            if last_break != -1:
-                text_to_speak = speakable_text_buffer[:last_break + 1]
-                queue_tts(text_to_speak)
-                speakable_text_buffer = speakable_text_buffer[last_break + 1:]
-            
+        # --- Finalization ---
+        # Wait for the TTS queue to finish speaking
+        while not tts_queue.empty() or speaking_in_progress:
             process_tts_queue()
+            time.sleep(0.1)
 
-        if speakable_text_buffer.strip():
-            queue_tts(speakable_text_buffer)
-
-    else:
-        # --- No tool call, just stream the response directly ---
-        # This part handles regular conversation
-        full_response = response['message']['content']
-        print(full_response)
-        queue_tts(full_response)
-
-
-    # --- Finalize the conversation ---
-    # Wait for the last sentence to finish speaking
-    while not tts_queue.empty() or speaking_in_progress:
-        process_tts_queue()
-        time.sleep(0.1)
-
-    print()  # For a new line after the response
-    
-    # Append the final assistant response to the history
-    if 'tool_calls' not in response['message']:
+        print()  # Add a newline for clean formatting in the console
         messages.append({"role": "assistant", "content": full_response})
+
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
+        queue_tts("Sorry, I ran into an error.")
 
 
 def main():
-    print(tools)
     try:
         while True:
             # The main loop now also needs to process the TTS queue for cleanup
