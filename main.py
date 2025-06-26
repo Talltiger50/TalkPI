@@ -91,7 +91,7 @@ else:
     tools1=None
 def stream_chat_response(messages):
     # This function remains unchanged
-    
+    print(tools1)
     stream=chat(model=model, messages=messages, stream=True,tools=tools1)
     for chunk in stream:
         yield chunk,stream
