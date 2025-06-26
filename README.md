@@ -11,6 +11,7 @@ Ensure [Ollama](https://ollama.com/) is installed on your Raspberry Pi. (make su
 ```bash
 git clone https://github.com/Talltiger50/TalkPI.git
 cd TalkPI
+chmod +x ./setup.sh
 sudo ./setup.sh
 ```
 
