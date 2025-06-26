@@ -106,7 +106,7 @@ def start():
     print("Phil: ", end='', flush=True)
 
     # --- First call to the model to see if it wants to use a tool ---
-    response = chat(model=model, messages=messages, stream=False, tools=tools1 if useTools else None)
+    response = chat(model=model, messages=messages, stream=False, tools=tools if useTools else None)
     
     # Check if the model decided to call a tool
     if response['message'].get('tool_calls'):
