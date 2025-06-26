@@ -1,18 +1,24 @@
 #!/bin/bash
-echo "Installing..."
-sudo apt install portaudio19-dev
+set -e  # Exit on any error
 
-python -m venv .venv
+echo "Installing system dependencies..."
+sudo apt update
+sudo apt install -y portaudio19-dev python3-venv python3-pip wget python3
+
+echo "Setting up Python virtual environment..."
+python3 -m venv .venv
 source .venv/bin/activate
 
-pip install -r requirements.txt
-echo "done installing python packages"
-echo "downloading piper tts model"
+echo "Installing Python packages..."
+.venv/bin/pip install -r requirements.txt
+echo "Done installing Python packages."
 
-mkdir piper-tts
+echo "Downloading Piper TTS model..."
+mkdir -p piper-tts
 cd piper-tts
-wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx?download=true -O en_us_joe_medium.onnx
-wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx.json?download=true -O en_us_joe_medium.onnx
-echo "done downloading model"
 
+wget -O en_US-joe-medium.onnx "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx?download=true"
+wget -O en_US-joe-medium.onnx.json "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx.json?download=true"
+
+echo "Done downloading model."
 cd ..
