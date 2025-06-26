@@ -91,8 +91,8 @@ def get_voice_input():
     #tools=None
 def stream_chat_response(messages):
     # This function remains unchanged
-    print(tools1)
-    stream=chat(model=model, messages=messages, stream=True,tools=tools1)
+    
+    stream=chat(model=model, messages=messages, stream=True,tools=tools)
     for chunk in stream:
         yield chunk,stream
 
@@ -183,6 +183,7 @@ def start():
 
 
 def main():
+    print(tools)
     try:
         while True:
             # The main loop now also needs to process the TTS queue for cleanup
