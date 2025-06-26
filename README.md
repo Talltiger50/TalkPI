@@ -18,7 +18,8 @@ sudo ./setup.sh
 ## Usage
 Simply run with a connected microphone and speaker:
 ```bash
-./venv/bin/python main.py
+source .venv/bin/activate
+python main.py
 ```
 To change the model, modify the `model` parameter in the Python file to your Ollama model of choice make sure it's downloaded with ollama:
 ```python
