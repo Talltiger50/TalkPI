@@ -85,10 +85,10 @@ def get_voice_input():
             return None
 
 # Asynchronous function to stream chat response
-if useTools:
-    tools1=tools
-else:
-    tools1=None
+#if useTools:
+    #tools=tools
+#else:
+    #tools=None
 def stream_chat_response(messages):
     # This function remains unchanged
     print(tools1)
