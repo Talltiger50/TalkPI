@@ -151,8 +151,8 @@ def start():
 
         # Call the queue processor in the loop to handle speaking
         process_tts_queue()
-        if stream["message"].get("tool_calls") and useTools:
-            call = stream["message"]["tool_calls"][0]["function"]
+        if chunk["message"].get("tool_calls") and useTools:
+            call = chunk["message"]["tool_calls"][0]["function"]
             func_name = call["name"]
             args = call["arguments"]
             # run the function
