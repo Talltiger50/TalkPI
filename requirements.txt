@@ -1,5 +1,5 @@
 # requirements.txt
-
+sounddevice
 numpy
 openai-whisper
 PyAudio
@@ -10,3 +10,4 @@ SpeechRecognition
 soundfile
 ollama
 piper-tts
+tinydb
