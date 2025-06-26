@@ -20,7 +20,7 @@ useTools=True
 
 
 print("Loading voice model...")
-voice = PiperVoice.load("piper-tts/en_Us_joe-medium.onnx")  # or path to model file
+voice = PiperVoice.load("piper-tts/en_US_joe-medium.onnx")  # or path to model file
 sample_rate = voice.config.sample_rate
 print("Voice model loaded.")
 
