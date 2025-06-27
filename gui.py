@@ -19,7 +19,7 @@ from kivy.factory import Factory
 from kivymd.uix.button import MDIconButton
 Factory.register('MDIconButton', cls=MDIconButton)
 # Set window size before running the app
-Window.fullscreen = True
+Window.fullscreen = "auto"
 from kivymd.app import MDApp  # <- Import MDApp, not App
 from kivy.uix.recycleview import RecycleView
 
