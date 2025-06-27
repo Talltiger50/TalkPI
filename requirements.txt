@@ -11,3 +11,5 @@ soundfile
 ollama
 piper-tts
 tinydb
+kivy
+kivymd
