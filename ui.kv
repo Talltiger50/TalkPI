@@ -1,0 +1,112 @@
+# ui.kv
+# This version is structured to work in both vertical (portrait)
+# and horizontal (landscape) orientations.
+
+ScreenManager:
+    ChatMenu:
+        name: 'chat'
+    SettingsMenu:
+        name: 'settings'
+
+<SettingsMenu>:
+    # A vertical BoxLayout is the root. It stacks children top-to-bottom,
+    # which adapts perfectly to screen rotation.
+    BoxLayout:
+        orientation: 'vertical'
+
+        # Top Bar: Using FloatLayout within a fixed-height box is fine
+        # for precise control over the button and label.
+        FloatLayout:
+            size_hint_y: None
+            height: dp(60)
+
+            Label:
+                text: "Setting Menu"
+                color: 0.5, 0.5, 0.8, 1
+                pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+
+            Button:
+                text: "Done"
+                size_hint: None, None
+                size: dp(150), dp(50)
+                background_normal: ''
+                background_color: 0, 0.5, 1, 1
+                pos_hint: {'right': 0.95, 'center_y': 0.5}
+                on_release: root.manager.current = 'chat'
+
+        # This empty Label acts as a placeholder for your main settings content.
+        # It will automatically fill the remaining space below the top bar.
+        Label:
+            text: "Settings Content Area"
+
+
+<ChatMenu>:
+    # The base of the chat screen is a vertical BoxLayout. This is key
+    # for a responsive layout.
+    BoxLayout:
+        orientation: 'vertical'
+
+        # 1. Top Bar (Header)
+        FloatLayout:
+            size_hint_y: None
+            height: dp(50)
+            canvas.before:
+                Color:
+                    rgba: 0.5, 0.5, 0.5, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            Label:
+                text: "AI Chat"
+                pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+                font_size: '24sp'
+                color: (0.2, 0.2, 0.2, 1)
+
+            # NOTE: Assuming you have kivymd installed for MDIconButton.
+            # If not, you can replace it with a standard Button.
+            MDIconButton:
+                icon: "cog"
+                pos_hint: {'right': 1, 'center_y': 0.5}
+                on_release: root.manager.current = 'settings'
+
+        # 2. Chat History Area
+        # The ChatBox now correctly resides within the vertical layout
+        # and will expand to fill the available space.
+        ChatBox:
+            id: chat_box
+
+<MessageBubble>:
+    size_hint_y: None
+    height: label.texture_size[1] + dp(20)
+    size_hint_x: 0.8
+    canvas.before:
+        Color:
+            # Assuming 'bg_color' is a property you'd set in Python
+            rgba: root.bg_color if hasattr(root, 'bg_color') else (0.2, 0.6, 0.8, 1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(15), dp(15), dp(15), dp(15)]
+    Label:
+        id: label
+        font_size: '12sp'
+        text: root.content
+        text_size: self.width - dp(20), None
+        height: self.texture_size[1]
+        padding: dp(10), dp(10)
+
+<ChatBox>:
+    # The RecycleView and its child RecycleBoxLayout are responsible for the
+    # vertically scrolling list of messages.
+    RecycleView:
+        id: rv
+        viewclass: 'MessageBubble'
+        data: root.messages  # Assumes 'messages' is a ListProperty on ChatBox
+        RecycleBoxLayout:
+            default_size: None, dp(60)
+            default_size_hint: 1, None
+            size_hint_y: None
+            height: self.minimum_height
+            orientation: 'vertical'
+            spacing: dp(10)
+            padding: dp(10)
