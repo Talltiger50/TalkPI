@@ -11,6 +11,7 @@ from piper import PiperVoice
 from tools import available_tools, tools_list
 
 
+
 class vllm:
     def __init__(self) -> None:
         # ollama model make sure to have the model preinstalled to ollama
@@ -156,15 +157,14 @@ class vllm:
             print("\nShutting down...")
     def process_tts_queue(self):
         """Process TTS queue in main thread - call this periodically in the main loop"""
-        global speaking_in_progress
 
-        if not speaking_in_progress and not self.tts_queue.empty():
+        if not self.speaking_in_progress and not self.tts_queue.empty():
             try:
                 text = self.tts_queue.get_nowait()
-                speaking_in_progress = True
+                self.speaking_in_progress = True
 
-                def speak_async(text_to_speak):
-                    global speaking_in_progress
+                def speak_async(self,text_to_speak):
+                    
                     try:
                         # Use a stream for real-time playback
                         with sd.OutputStream(samplerate=self.sample_rate, channels=1, dtype='int16') as stream:
@@ -172,10 +172,10 @@ class vllm:
                                 data = np.frombuffer(chunk, dtype=np.int16)
                                 stream.write(data)
                     finally:
-                        speaking_in_progress = False # Signal that speaking is done
+                        self.speaking_in_progress = False # Signal that speaking is done
 
                 # Run the speaking part in a separate thread to not block the main loop
-                thread = threading.Thread(target=speak_async, args=(text,), daemon=True)
+                thread = threading.Thread(target=speak_async, args=(self,text,), daemon=True)
                 thread.start()
 
             except queue.Empty:
